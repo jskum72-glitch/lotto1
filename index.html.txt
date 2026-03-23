@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Premium Lotto Generator</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        // --- Firebase 설정 (본인의 설정값으로 교체하세요) ---
+        const firebaseConfig = {
+  apiKey: "AIzaSyBwaU0NjiDlUU0EYVAAvXbdlDEOxiN4wnA",
+  authDomain: "lotto-1-23823.firebaseapp.com",
+  projectId: "lotto-1-23823",
+  storageBucket: "lotto-1-23823.firebasestorage.app",
+  messagingSenderId: "98694273230",
+  appId: "1:98694273230:web:17e88e278a1e474d8d589f"
+};
+
+        // Firebase 초기화
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // 로또 번호 생성 및 저장 함수
+        async function generateLotto() {
+            const luckyNumInput = document.getElementById('luckyNumber');
+            const luckyNum = parseInt(luckyNumInput.value);
+            const resultContainer = document.getElementById('resultContainer');
+            const timeDisplay = document.getElementById('timeDisplay');
+            const btn = document.getElementById('startBtn');
+
+            // 유효성 검사
+            if (isNaN(luckyNum) || luckyNum < 1 || luckyNum > 45) {
+                alert("1부터 45 사이의 행운의 숫자를 입력해주세요.");
+                return;
+            }
+
+            // 버튼 로딩 상태
+            btn.disabled = true;
+            btn.innerText = "번호 생성 중...";
+            resultContainer.innerHTML = "";
+
+            const allGames = [];
+            const now = new Date();
+            const timeStr = now.toLocaleString();
+
+            // 5행의 로또 번호 생성
+            for (let i = 0; i < 5; i++) {
+                let numbers = new Set();
+                
+                // 요구사항: 행운의 숫자가 4번 이상 등장해야 함
+                // 5행 중 첫 4행에는 행운의 숫자를 무조건 포함
+                if (i < 4) {
+                    numbers.add(luckyNum);
+                }
+
+                while (numbers.size < 6) {
+                    let r = Math.floor(Math.random() * 45) + 1;
+                    numbers.add(r);
+                }
+
+                const sortedNumbers = Array.from(numbers).sort((a, b) => a - b);
+                allGames.push(sortedNumbers);
+            }
+
+            // 화면에 실시간 표시 (애니메이션 효과)
+            timeDisplay.innerText = `생성 시간: ${timeStr}`;
+            
+            for (let i = 0; i < allGames.length; i++) {
+                await new Promise(resolve => setTimeout(resolve, 200)); // 시각적 효과를 위한 지연
+                const rowDiv = document.createElement('div');
+                rowDiv.className = "flex justify-center gap-2 mb-4 animate-bounce-short";
+                
+                allGames[i].forEach(num => {
+                    const ball = document.createElement('span');
+                    ball.className = `w-10 h-10 md:w-12 md:h-12 flex items-center justify-center rounded-full text-white font-bold shadow-lg ${getBallColor(num)}`;
+                    ball.innerText = num;
+                    rowDiv.appendChild(ball);
+                });
+                resultContainer.appendChild(rowDiv);
+            }
+
+            // Firestore에 데이터 저장
+            try {
+                await addDoc(collection(db, "lotto_history"), {
+                    lucky_number: luckyNum,
+                    generated_numbers: allGames,
+                    timestamp: serverTimestamp(),
+                    display_time: timeStr
+                });
+                console.log("데이터가 성공적으로 저장되었습니다.");
+            } catch (e) {
+                console.error("데이터 저장 오류: ", e);
+            }
+
+            btn.disabled = false;
+            btn.innerText = "로또 번호 생성 시작";
+        }
+
+        // 로또 공 색상 결정 함수
+        function getBallColor(num) {
+            if (num <= 10) return "bg-yellow-400";
+            if (num <= 20) return "bg-blue-400";
+            if (num <= 30) return "bg-red-400";
+            if (num <= 40) return "bg-gray-500";
+            return "bg-green-500";
+        }
+
+        // 전역 함수로 등록
+        window.generateLotto = generateLotto;
+    </script>
+
+    <style>
+        @keyframes bounce-short {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-5px); }
+        }
+        .animate-bounce-short {
+            animation: bounce-short 0.5s ease-in-out;
+        }
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center p-4">
+
+    <div class="bg-white rounded-3xl shadow-2xl p-6 md:p-10 w-full max-w-lg">
+        <header class="text-center mb-8">
+            <h1 class="text-3xl font-extrabold text-gray-800 mb-2">Lotto Master</h1>
+            <p class="text-gray-500">행운의 숫자를 넣어 번호를 생성하세요</p>
+        </header>
+
+        <div class="space-y-6">
+            <!-- 입력 섹션 -->
+            <div class="relative">
+                <label class="text-sm font-semibold text-gray-600 ml-1">나의 행운 숫자 (1-45)</label>
+                <input type="number" id="luckyNumber" min="1" max="45" placeholder="7" 
+                    class="w-full mt-1 px-4 py-3 border-2 border-gray-100 rounded-xl focus:border-indigo-500 focus:outline-none transition-all text-lg font-bold text-indigo-600">
+            </div>
+
+            <!-- 생성 버튼 -->
+            <button onclick="generateLotto()" id="startBtn"
+                class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-xl shadow-lg transform active:scale-95 transition-all text-lg">
+                로또 번호 생성 시작
+            </button>
+
+            <!-- 생성 시간 표시 -->
+            <div id="timeDisplay" class="text-center text-sm text-gray-400 font-medium h-4">
+                <!-- 시간 출력 위치 -->
+            </div>
+
+            <!-- 결과 표시 섹션 -->
+            <div id="resultContainer" class="py-4 border-t border-gray-100 mt-4">
+                <div class="text-center text-gray-300 italic">행운의 번호가 아래에 표시됩니다.</div>
+            </div>
+        </div>
+
+        <footer class="mt-8 text-center text-xs text-gray-400">
+            © 2024 Premium Lotto Generator. All rights reserved.
+        </footer>
+    </div>
+
+</body>
+</html>
